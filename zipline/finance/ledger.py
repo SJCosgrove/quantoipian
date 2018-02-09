@@ -30,6 +30,7 @@ import zipline.protocol as zp
 from zipline.utils.sentinel import sentinel
 from .position import Position
 from ._finance_ext import (
+    PositionStats,
     calculate_position_tracker_stats,
     update_position_last_sale_prices,
 )
@@ -56,7 +57,7 @@ class PositionTracker(object):
 
         # cache the stats until something alters our positions
         self._dirty_stats = True
-        self._stats = None
+        self._stats = PositionStats.new()
 
     def update_position(self,
                         asset,
@@ -285,12 +286,23 @@ class PositionTracker(object):
 
     @property
     def stats(self):
-        if not self._dirty_stats:
-            return self._stats
+        """The current status of the positions.
 
-        self._stats = stats = calculate_position_tracker_stats(self.positions)
-        self._dirty_stats = False
-        return stats
+        Returns
+        -------
+        stats : PositionStats
+            The current stats position stats.
+
+        Notes
+        -----
+        This is cached, repeated access will not recompute the stats until
+        the stats may have changed.
+        """
+        if self._dirty_stats:
+            calculate_position_tracker_stats(self.positions, self._stats)
+            self._dirty_stats = False
+
+        return self._stats
 
 
 if PY2:
@@ -734,7 +746,7 @@ class Ledger(object):
         Notes
         -----
         This is cached, repeated access will not recompute the portfolio until
-        the portfolio has changed.
+        the portfolio may have changed.
         """
         self.update_portfolio()
         return self._immutable_portfolio
